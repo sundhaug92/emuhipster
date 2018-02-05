@@ -1,0 +1,20 @@
+version: '3'
+services:
+  memorycontroller:
+    build: ./memory-controller
+    ports:
+     - "5000:5000"
+    depends_on:
+     - redis
+  memorydevice:
+    build: ./memory-device
+    ports:
+     - "5001:5000"
+    depends_on:
+     - redis
+  terminal:
+    build: ./terminal
+    depends_on:
+     - memorycontroller
+  redis:
+    image: redis
