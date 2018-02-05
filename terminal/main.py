@@ -1,5 +1,6 @@
 import requests
-import json
+from zipfile import ZipFile
+from io import BytesIO
 
 
 class MemoryDevice():
@@ -8,6 +9,8 @@ class MemoryDevice():
     def __init__(self, chip_id=None, size=None, write_enable=True, data=None):
         if data is None:
             data = [255 for _ in range(size)]
+        elif size is None:
+            size = len(data)
         o = {'write_enable': write_enable, 'data': data}
         self.write_enable, self.size = write_enable, size
         self.chip_id = chip_id if chip_id is not None else int(requests.post(
@@ -44,35 +47,27 @@ class MemoryController():
                       data=str(byte).encode())
 
 
-print('> Doing RAM test...')
-print('>> Creating device')
-ramTest = MemoryDevice(size=8192)
-print('>> Testing original value')
-assert ramTest.read(0) == 255
-print('>> Writing to device')
-ramTest.write(1, 127)
-print('>> Reading back')
-assert ramTest.read(0) == 255
-assert ramTest.read(1) == 127
-print('>> RAM TEST GO')
+def min_length_hex(i, l=2):
+    c = hex(i)[2:]
+    while len(c) < l:
+        c = '0' + c
+    return c
 
-print('> Doing ROM test')
-print('>> Creating device')
-romTest = MemoryDevice(size=256, write_enable=False)
-print('>> Testing original value')
-assert romTest.read(0) == 255
-romTest.write(1, 127)
-print('>> Reading back')
-assert romTest.read(0) == 255
-assert romTest.read(1) == 255
-print('>> ROM TEST GO')
 
-print('> Starting memory controller test')
-controller = MemoryController()
-print('>> Registering devices')
-controller.register_device(0x0000, ramTest)
-controller.register_device(0xFF00, romTest)
-print('>> Reading back from ram-test')
-assert controller.read(0x0001) == 127
-print('>> Reading back from rom-test')
-assert controller.read(0xFF01) == 255
+firmware_zip = ZipFile(BytesIO(requests.get(
+    'http://www.callapple.org/soft/ap1/emul/Apple1_bios.zip').content))
+wozmon_byte = firmware_zip.read('apple1.rom')
+wozmon = [_ for _ in wozmon_byte]
+
+ram = MemoryDevice(size=8192)
+rom = MemoryDevice(write_enable=False, data=wozmon)
+memory_controller = MemoryController()
+memory_controller.register_device(0x0000, ram)
+memory_controller.register_device(0xFF00, rom)
+
+for _ in range(16):
+    for __ in range(16):
+        address = 0xFF00 + (_ * 16) + __
+        print(min_length_hex(address)[2:], min_length_hex(
+            memory_controller.read(address)), end=' ')
+    print()
