@@ -3,7 +3,7 @@ from zipfile import ZipFile
 from io import BytesIO
 
 
-class MemoryDevice():
+class MemoryDevice:
     BASE_URL = 'http://memorydevice:5000'
 
     def __init__(self, chip_id=None, size=None, write_enable=True, data=None):
@@ -25,7 +25,7 @@ class MemoryDevice():
                       data=str(byte).encode())
 
 
-class MemoryController():
+class MemoryController:
     BASE_URL = 'http://memorycontroller:5000'
 
     def __init__(self, controller_id=None):
@@ -47,6 +47,31 @@ class MemoryController():
                       data=str(byte).encode())
 
 
+class Mainprocessor:
+    BASE_URL = 'http://mainprocessor:5000'
+
+    def __init__(self, processor_id=None, memory_controller=None):
+        self.processor_id = processor_id if processor_id is not None else requests.post(
+            self.BASE_URL, data=memory_controller.memory_url.encode()).text
+        self.url = '/'.join([self.BASE_URL, str(self.processor_id)])
+
+    def reset(self):
+        r = requests.get(self.url + '/reset')
+        if not r.ok:
+            raise Exception(r.text)
+
+    def dump(self):
+        r = requests.get(self.url + '/dump')
+        if not r.ok:
+            raise Exception(r.text)
+
+    def step(self):
+        r = requests.get(self.url + '/step')
+        if not r.ok:
+            raise Exception(r.text)
+        return r.text
+
+
 def min_length_hex(i, l=2):
     c = hex(i)[2:]
     while len(c) < l:
@@ -64,10 +89,7 @@ rom = MemoryDevice(write_enable=False, data=wozmon)
 memory_controller = MemoryController()
 memory_controller.register_device(0x0000, ram)
 memory_controller.register_device(0xFF00, rom)
-
-for _ in range(16):
-    for __ in range(16):
-        address = 0xFF00 + (_ * 16) + __
-        print(min_length_hex(address)[2:], min_length_hex(
-            memory_controller.read(address)), end=' ')
-    print()
+processor = Mainprocessor(memory_controller=memory_controller)
+processor.reset()
+for _ in range(1000):
+    print(processor.step())

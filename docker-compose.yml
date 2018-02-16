@@ -12,9 +12,16 @@ services:
      - "5001:5000"
     depends_on:
      - redis
+  mainprocessor:
+    build: ./main-processor
+    ports:
+     - "5002:5000"
+    depends_on:
+     - redis
   terminal:
     build: ./terminal
     depends_on:
      - memorycontroller
+     - mainprocessor
   redis:
     image: redis
